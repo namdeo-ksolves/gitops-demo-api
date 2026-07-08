@@ -1,0 +1,66 @@
+name: CI/CD — Build, Push & Deploy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  HARBOR_URL: 43.205.115.210
+  IMAGE_NAME: library/gitops-demo-api
+
+jobs:
+  build-and-push:
+    name: Build & Push to Harbor
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: tag
+        run: echo "TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Login to Harbor
+        run: |
+          echo "${{ secrets.HARBOR_PASSWORD }}" | \
+            docker login ${{ env.HARBOR_URL }} -u "${{ secrets.HARBOR_USER }}" --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg APP_VERSION=${{ steps.tag.outputs.TAG }} \
+            -t ${{ env.HARBOR_URL }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.TAG }} \
+            -t ${{ env.HARBOR_URL }}/${{ env.IMAGE_NAME }}:latest \
+            .
+
+      - name: Push to Harbor
+        run: |
+          docker push ${{ env.HARBOR_URL }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.TAG }}
+          docker push ${{ env.HARBOR_URL }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Update Helm values with new tag
+        run: |
+          sed -i "s|tag: .*|tag: \"${{ steps.tag.outputs.TAG }}\"|" helm/values.yaml
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add helm/values.yaml
+          git diff --staged --quiet || git commit -m "chore: update image tag to ${{ steps.tag.outputs.TAG }}"
+          git push
+
+  deploy-dev:
+    name: Deploy to Dev (ArgoCD Sync)
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Trigger ArgoCD sync
+        run: |
+          curl -sk -X POST \
+            http://${{ secrets.ARGOCD_URL }}/api/v1/applications/gitops-demo-api/sync \
+            -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' && echo "Sync triggered" || echo "Sync request sent"

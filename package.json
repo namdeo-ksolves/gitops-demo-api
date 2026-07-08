@@ -1,0 +1,13 @@
+{
+  "name": "gitops-demo-api",
+  "version": "1.0.0",
+  "description": "Demo Node.js API for AI-Powered GitOps webinar",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
