@@ -23,6 +23,11 @@ jobs:
         id: tag
         run: echo "TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
 
+      - name: Configure Docker for insecure Harbor registry
+        run: |
+          echo '{"insecure-registries": ["43.205.115.210"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
       - name: Login to Harbor
         run: |
           echo "${{ secrets.HARBOR_PASSWORD }}" | \
@@ -60,7 +65,7 @@ jobs:
       - name: Trigger ArgoCD sync
         run: |
           curl -sk -X POST \
-            http://${{ secrets.ARGOCD_URL }}/api/v1/applications/gitops-demo-api/sync \
+            https://${{ secrets.ARGOCD_URL }}/api/v1/applications/gitops-demo-api/sync \
             -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{}' && echo "Sync triggered" || echo "Sync request sent"
