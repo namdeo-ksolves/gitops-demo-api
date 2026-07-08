@@ -14,6 +14,8 @@ jobs:
   build-and-push:
     name: Build & Push to Harbor
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -49,8 +51,9 @@ jobs:
       - name: Update Helm values with new tag
         run: |
           sed -i "s|tag: .*|tag: \"${{ steps.tag.outputs.TAG }}\"|" helm/values.yaml
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git add helm/values.yaml
           git diff --staged --quiet || git commit -m "chore: update image tag to ${{ steps.tag.outputs.TAG }}"
           git push
