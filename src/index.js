@@ -1,8 +1,10 @@
 const express = require('express');
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 // In-memory product store for demo
 let products = [
@@ -14,10 +16,6 @@ let nextId = 4;
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', version: process.env.APP_VERSION || '1.0.0', uptime: process.uptime() });
-});
-
-app.get('/', (req, res) => {
-  res.json({ message: 'GitOps Demo API', version: process.env.APP_VERSION || '1.0.0' });
 });
 
 app.get('/api/products', (req, res) => {

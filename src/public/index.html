@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitOps Demo Store</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0D1117;
+      color: #E6EDF3;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #161B22;
+      border-bottom: 1px solid #21262D;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #4F46E5, #7C3AED);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .logo-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: #E6EDF3;
+    }
+    .logo-sub {
+      font-size: 11px;
+      color: #6E7681;
+      margin-top: 1px;
+      letter-spacing: .04em;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .version-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #1C2128;
+      border: 1px solid #30363D;
+      border-radius: 20px;
+      padding: 5px 12px 5px 8px;
+      font-size: 12px;
+      color: #8B949E;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      transition: border-color .4s, background .4s;
+    }
+    .version-badge.updated {
+      border-color: #4ADE80;
+      background: #0D1F17;
+      color: #4ADE80;
+    }
+    .version-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #4ADE80;
+      box-shadow: 0 0 6px #4ADE80;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .4; }
+    }
+    #version-text { transition: color .4s; }
+
+    .refresh-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #484F58;
+    }
+    .spin {
+      width: 12px; height: 12px;
+      border: 2px solid #30363D;
+      border-top-color: #4F46E5;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      display: none;
+    }
+    .spin.active { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Deploy banner ── */
+    .deploy-banner {
+      background: linear-gradient(90deg, #052E16, #0D2B14);
+      border-bottom: 1px solid #166534;
+      padding: 10px 32px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #4ADE80;
+      animation: slideDown .3s ease;
+    }
+    .deploy-banner.show { display: flex; }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .banner-icon { font-size: 16px; }
+    .banner-close {
+      margin-left: auto;
+      background: none; border: none;
+      color: #4ADE80; cursor: pointer;
+      font-size: 16px; opacity: .7;
+    }
+    .banner-close:hover { opacity: 1; }
+
+    /* ── Main ── */
+    main { padding: 36px 32px 64px; max-width: 1100px; margin: 0 auto; }
+
+    .page-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .page-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: #E6EDF3;
+    }
+    .page-subtitle {
+      font-size: 13px;
+      color: #6E7681;
+      margin-top: 3px;
+    }
+    .product-count {
+      font-size: 13px;
+      color: #6E7681;
+      background: #1C2128;
+      border: 1px solid #30363D;
+      padding: 5px 12px;
+      border-radius: 20px;
+    }
+    .product-count span {
+      color: #E6EDF3;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: #161B22;
+      border: 1px solid #21262D;
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color .2s, transform .2s;
+      animation: cardIn .4s ease both;
+    }
+    .card:hover {
+      border-color: #388BFD;
+      transform: translateY(-2px);
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card.new-card {
+      border-color: #4ADE80;
+      box-shadow: 0 0 0 1px #4ADE80, 0 0 20px rgba(74,222,128,.15);
+    }
+
+    .card-icon {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      margin-bottom: 16px;
+    }
+    .card-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #E6EDF3;
+      margin-bottom: 6px;
+    }
+    .card-category {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+    }
+    .card-footer {
+      border-top: 1px solid #21262D;
+      padding-top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #484F58;
+    }
+    .card-id {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+    }
+    .card-status {
+      display: flex; align-items: center; gap: 5px;
+      color: #4ADE80;
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #4ADE80;
+    }
+
+    /* Category colours */
+    .cat-devops    { background: rgba(79,70,229,.15); color: #818CF8; }
+    .cat-cd        { background: rgba(16,185,129,.15); color: #34D399; }
+    .cat-packaging { background: rgba(245,158,11,.15); color: #FBBF24; }
+    .cat-orchestration { background: rgba(59,130,246,.15); color: #60A5FA; }
+    .cat-general   { background: rgba(139,92,246,.15); color: #A78BFA; }
+
+    .icon-devops    { background: rgba(79,70,229,.2); }
+    .icon-cd        { background: rgba(16,185,129,.2); }
+    .icon-packaging { background: rgba(245,158,11,.2); }
+    .icon-orchestration { background: rgba(59,130,246,.2); }
+    .icon-general   { background: rgba(139,92,246,.2); }
+
+    /* ── Empty / Loading ── */
+    .empty {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 60px 20px;
+      color: #484F58;
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 12px;
+      color: #30363D;
+      border-top: 1px solid #161B22;
+    }
+    footer a { color: #4F46E5; text-decoration: none; }
+
+    /* ── Last sync ── */
+    .last-sync {
+      text-align: center;
+      font-size: 11px;
+      color: #30363D;
+      margin-top: 28px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚙️</div>
+      <div>
+        <div class="logo-text">GitOps Demo Store</div>
+        <div class="logo-sub">Powered by Argo CD + Kubernetes</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="refresh-indicator">
+        <div class="spin" id="spin"></div>
+        <span id="last-updated">--</span>
+      </div>
+      <div class="version-badge" id="version-badge">
+        <div class="version-dot"></div>
+        <span id="version-text">loading…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Deploy banner -->
+  <div class="deploy-banner" id="deploy-banner">
+    <span class="banner-icon">🚀</span>
+    <strong>New deployment detected!</strong>
+    &nbsp;ArgoCD just synced a new version to the cluster.
+    <button class="banner-close" onclick="document.getElementById('deploy-banner').classList.remove('show')">✕</button>
+  </div>
+
+  <!-- Main -->
+  <main>
+    <div class="page-header">
+      <div>
+        <div class="page-title">Product Catalog</div>
+        <div class="page-subtitle">Live data · auto-refreshes every 5 seconds</div>
+      </div>
+      <div class="product-count">Total: <span id="total">—</span></div>
+    </div>
+
+    <div class="grid" id="grid">
+      <div class="empty">
+        <div class="empty-icon">⟳</div>
+        <div>Loading products…</div>
+      </div>
+    </div>
+
+    <div class="last-sync">Last synced: <span id="sync-time">—</span></div>
+  </main>
+
+  <footer>
+    Deployed via GitOps — every change flows through Git → CI → Harbor → Argo CD → Kubernetes &nbsp;·&nbsp;
+    <a href="/api/products" target="_blank">Raw API</a> &nbsp;·&nbsp;
+    <a href="/health" target="_blank">Health</a>
+  </footer>
+
+<script>
+  const CATEGORY_META = {
+    'DevOps':        { cls: 'devops',        icon: '🛠️' },
+    'CD Tool':       { cls: 'cd',            icon: '🔄' },
+    'Packaging':     { cls: 'packaging',     icon: '📦' },
+    'Orchestration': { cls: 'orchestration', icon: '☸️' },
+    'General':       { cls: 'general',       icon: '⭐' },
+  };
+
+  function getMeta(cat) {
+    return CATEGORY_META[cat] || CATEGORY_META['General'];
+  }
+
+  let knownIds   = new Set();
+  let currentVer = null;
+  let newIds     = new Set();
+
+  function renderCard(product, isNew) {
+    const meta = getMeta(product.category);
+    return `
+      <div class="card${isNew ? ' new-card' : ''}" id="card-${product.id}">
+        <div class="card-icon icon-${meta.cls}">${meta.icon}</div>
+        <div class="card-name">${product.name}</div>
+        <div class="card-category cat-${meta.cls}">${product.category}</div>
+        <div class="card-footer">
+          <span class="card-id">#${String(product.id).padStart(3,'0')}</span>
+          <span class="card-status"><span class="status-dot"></span>Active</span>
+        </div>
+      </div>`;
+  }
+
+  async function refresh() {
+    document.getElementById('spin').classList.add('active');
+    try {
+      const [pRes, hRes] = await Promise.all([
+        fetch('/api/products'),
+        fetch('/health')
+      ]);
+      const { total, products } = await pRes.json();
+      const { version }         = await hRes.json();
+
+      // Version change detection
+      if (currentVer && currentVer !== version) {
+        document.getElementById('deploy-banner').classList.add('show');
+        const badge = document.getElementById('version-badge');
+        badge.classList.add('updated');
+        setTimeout(() => badge.classList.remove('updated'), 4000);
+      }
+      if (currentVer !== version) {
+        currentVer = version;
+        const short = version.length > 12 ? version.slice(0,12) : version;
+        document.getElementById('version-text').textContent = 'v ' + short;
+      }
+
+      // Detect new product IDs
+      newIds = new Set(products.map(p => p.id).filter(id => !knownIds.has(id)));
+      products.forEach(p => knownIds.add(p.id));
+
+      // Full re-render (simple, reliable)
+      const grid = document.getElementById('grid');
+      if (products.length === 0) {
+        grid.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div>No products yet</div></div>';
+      } else {
+        grid.innerHTML = products.map(p => renderCard(p, newIds.has(p.id))).join('');
+        // Remove new-card highlight after animation
+        if (newIds.size > 0) {
+          setTimeout(() => {
+            newIds.forEach(id => {
+              const el = document.getElementById('card-' + id);
+              if (el) el.classList.remove('new-card');
+            });
+            newIds.clear();
+          }, 3000);
+        }
+      }
+
+      document.getElementById('total').textContent = total;
+      document.getElementById('sync-time').textContent = new Date().toLocaleTimeString();
+
+      const now = new Date();
+      document.getElementById('last-updated').textContent =
+        now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    } catch (e) {
+      document.getElementById('version-text').textContent = 'unreachable';
+    }
+    document.getElementById('spin').classList.remove('active');
+  }
+
+  // Initial load then every 5s
+  refresh();
+  setInterval(refresh, 5000);
+</script>
+</body>
+</html>
