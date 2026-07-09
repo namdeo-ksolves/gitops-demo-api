@@ -8,10 +8,11 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: 3000
+      targetPort: http
       protocol: TCP
+      name: http
       {{- if eq .Values.service.type "NodePort" }}
       nodePort: {{ .Values.service.nodePort }}
       {{- end }}
   selector:
-    app: {{ include "gitops-demo-api.name" . }}
+    {{- include "gitops-demo-api.selectorLabels" . | nindent 4 }}

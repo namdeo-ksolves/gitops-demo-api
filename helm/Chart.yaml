@@ -4,3 +4,9 @@ description: AI-Powered GitOps Webinar Demo Application
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
+keywords:
+  - nodejs
+  - gitops
+  - demo
+maintainers:
+  - name: gitops-team

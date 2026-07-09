@@ -8,6 +8,12 @@
 
 {{- define "gitops-demo-api.labels" -}}
 app: {{ include "gitops-demo-api.name" . }}
+version: {{ .Chart.AppVersion | quote }}
+managed-by: Helm
 release: {{ .Release.Name }}
-version: {{ .Chart.AppVersion }}
+{{- end }}
+
+{{- define "gitops-demo-api.selectorLabels" -}}
+app: {{ include "gitops-demo-api.name" . }}
+release: {{ .Release.Name }}
 {{- end }}

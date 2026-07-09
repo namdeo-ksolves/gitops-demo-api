@@ -1,0 +1,32 @@
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+  tag: "latest"
+
+service:
+  type: NodePort
+  port: 3000
+  nodePort: 31000
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+env:
+  APP_VERSION: "dev"
+  NODE_ENV: "development"
+
+redis:
+  secretName: "redis-secret-dev"
+  secretKey: "REDIS_URL"
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 80

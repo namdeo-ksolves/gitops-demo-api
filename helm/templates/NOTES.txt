@@ -1,0 +1,22 @@
+GitOps Demo API deployed successfully!
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Version: {{ .Chart.AppVersion }}
+
+Access the application:
+{{- if eq .Values.service.type "NodePort" }}
+  http://<NODE_IP>:{{ .Values.service.nodePort }}
+{{- else }}
+  kubectl port-forward svc/{{ include "gitops-demo-api.fullname" . }} 3000:3000 -n {{ .Release.Namespace }}
+  http://localhost:3000
+{{- end }}
+
+Health check:
+  curl http://<NODE_IP>:{{ .Values.service.nodePort }}/health
+
+Watch rollout:
+  kubectl rollout status deployment/{{ include "gitops-demo-api.fullname" . }} -n {{ .Release.Namespace }} -w
+
+Upgrade with env overrides:
+  helm upgrade {{ .Release.Name }} ./helm -f helm/values-prod.yaml -n {{ .Release.Namespace }}
