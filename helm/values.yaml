@@ -3,7 +3,7 @@ replicaCount: 2
 image:
   repository: 43.205.115.210/library/gitops-demo-api
   pullPolicy: Always
-  tag: "3aeccbd76dc69335b5b450224309a2b33fa8819b"
+  tag: "d358f9765634353f1c1a8e07742b7b680df7b5fc"
 
 service:
   type: NodePort
