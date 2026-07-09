@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+# Skip pipeline when the bot commits an image tag update to avoid infinite loops
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   HARBOR_URL: 43.205.115.210
   IMAGE_NAME: library/gitops-demo-api
@@ -16,6 +21,7 @@ jobs:
   lint-and-test:
     name: Lint & Test
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'chore: update image tag')"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
