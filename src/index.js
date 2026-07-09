@@ -9,9 +9,8 @@ let products = [
   { id: 1, name: 'GitOps Toolkit', category: 'DevOps', price: 0 },
   { id: 2, name: 'ArgoCD', category: 'CD Tool', price: 0 },
   { id: 3, name: 'Helm Chart', category: 'Packaging', price: 0 },
-  { id: 4, name: 'Kubernetes', category: 'Orchestration', price: 0 },
 ];
-let nextId = 5;
+let nextId = 4;
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', version: process.env.APP_VERSION || '1.0.0', uptime: process.uptime() });
