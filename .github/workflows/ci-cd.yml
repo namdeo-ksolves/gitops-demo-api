@@ -1,4 +1,4 @@
-name: CI/CD — Build, Push & Deploy
+name: CI/CD — Lint, Build, Push, Deploy & Drift Check
 
 on:
   push:
@@ -9,13 +9,39 @@ on:
 env:
   HARBOR_URL: 43.205.115.210
   IMAGE_NAME: library/gitops-demo-api
+  APP_NAME: gitops-demo-api
 
 jobs:
+  # ── Stage 1: Lint & Test ──────────────────────────────────────────────────
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test --if-present
+
+  # ── Stage 2: Build & Push ─────────────────────────────────────────────────
   build-and-push:
     name: Build & Push to Harbor
     runs-on: ubuntu-latest
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
+    outputs:
+      image_tag: ${{ steps.tag.outputs.TAG }}
 
     steps:
       - name: Checkout code
@@ -48,27 +74,121 @@ jobs:
           docker push ${{ env.HARBOR_URL }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.TAG }}
           docker push ${{ env.HARBOR_URL }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Update Helm values with new tag
+  # ── Stage 3: Update Helm values ───────────────────────────────────────────
+  update-helm:
+    name: Update Helm Image Tag
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update image tag in values.yaml
         run: |
-          sed -i "s|tag: .*|tag: \"${{ steps.tag.outputs.TAG }}\"|" helm/values.yaml
+          sed -i "s|tag: .*|tag: \"${{ needs.build-and-push.outputs.image_tag }}\"|" helm/values.yaml
+
+      - name: Commit and push updated values.yaml
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git add helm/values.yaml
-          git diff --staged --quiet || git commit -m "chore: update image tag to ${{ steps.tag.outputs.TAG }}"
+          git diff --staged --quiet || git commit -m "chore: update image tag to ${{ needs.build-and-push.outputs.image_tag }}"
           git push
 
-  deploy-dev:
-    name: Deploy to Dev (ArgoCD Sync)
+  # ── Stage 4: Sync ArgoCD ──────────────────────────────────────────────────
+  sync-argocd:
+    name: Trigger ArgoCD Sync
     runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.ref == 'refs/heads/main'
+    needs: update-helm
 
     steps:
       - name: Trigger ArgoCD sync
         run: |
-          curl -sk -X POST \
-            https://${{ secrets.ARGOCD_URL }}/api/v1/applications/gitops-demo-api/sync \
+          HTTP_STATUS=$(curl -sk -o /dev/null -w "%{http_code}" -X POST \
+            https://${{ secrets.ARGOCD_URL }}/api/v1/applications/${{ env.APP_NAME }}/sync \
             -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{}' && echo "Sync triggered" || echo "Sync request sent"
+            -d '{}')
+          echo "ArgoCD sync response: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::warning::ArgoCD sync returned HTTP $HTTP_STATUS — check token or app name"
+          fi
+
+      - name: Wait for ArgoCD to reconcile
+        run: sleep 20
+
+      - name: Check ArgoCD sync status
+        run: |
+          RESPONSE=$(curl -sk \
+            https://${{ secrets.ARGOCD_URL }}/api/v1/applications/${{ env.APP_NAME }} \
+            -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}")
+          SYNC=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['status']['sync']['status'])")
+          HEALTH=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['status']['health']['status'])")
+          echo "Sync status : $SYNC"
+          echo "Health status: $HEALTH"
+          if [ "$SYNC" != "Synced" ]; then
+            echo "::warning::Application is not Synced (status=$SYNC)"
+          fi
+
+  # ── Stage 5: Drift Check ──────────────────────────────────────────────────
+  drift-check:
+    name: Drift Check
+    runs-on: ubuntu-latest
+    needs: sync-argocd
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # pull latest (after helm tag update commit)
+          ref: main
+
+      - name: Get expected tag from values.yaml
+        id: expected
+        run: |
+          TAG=$(grep 'tag:' helm/values.yaml | head -1 | awk '{print $2}' | tr -d '"')
+          echo "Expected tag: $TAG"
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Get deployed tag from ArgoCD
+        id: deployed
+        run: |
+          RESPONSE=$(curl -sk \
+            https://${{ secrets.ARGOCD_URL }}/api/v1/applications/${{ env.APP_NAME }} \
+            -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}")
+          # Extract deployed image tag from ArgoCD summary
+          DEPLOYED_IMAGE=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          images = d.get('status', {}).get('summary', {}).get('images', [])
+          for img in images:
+              if 'gitops-demo-api' in img:
+                  print(img.split(':')[-1])
+                  break
+          else:
+              print('unknown')
+          ")
+          echo "Deployed tag: $DEPLOYED_IMAGE"
+          echo "TAG=$DEPLOYED_IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Compare expected vs deployed
+        run: |
+          EXPECTED="${{ steps.expected.outputs.TAG }}"
+          DEPLOYED="${{ steps.deployed.outputs.TAG }}"
+          echo "──────────────────────────────────────"
+          echo "  Drift Detection Report"
+          echo "──────────────────────────────────────"
+          echo "  Expected (values.yaml) : $EXPECTED"
+          echo "  Deployed (ArgoCD)      : $DEPLOYED"
+          echo "──────────────────────────────────────"
+          if [ "$EXPECTED" = "$DEPLOYED" ]; then
+            echo "  Status: NO DRIFT — cluster matches git"
+          else
+            echo "  Status: DRIFT DETECTED — cluster is out of sync!"
+            echo "::error::Drift detected! Expected=$EXPECTED but cluster has $DEPLOYED"
+            exit 1
+          fi
