@@ -51,8 +51,22 @@ let services = [
     deployedAt: new Date(STARTED_AT - 86400000 * 2).toISOString(),
     tech: ['Node.js', 'Redis', 'SendGrid'],
   },
+  {
+    id: 4,
+    name: 'AI Recommendation Engine',
+    category: 'ML',
+    status: 'running',
+    version: APP_VERSION,
+    replicas: 2,
+    uptime: 99.90,
+    team: 'AI Platform',
+    port: 8004,
+    description: 'Delivers real-time product and content recommendations using LLM embeddings and vector search.',
+    deployedAt: new Date().toISOString(),
+    tech: ['Python', 'FastAPI', 'Pinecone', 'OpenAI'],
+  },
 ];
-let nextId = 4;
+let nextId = 5;
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', version: APP_VERSION, uptime: process.uptime() });
