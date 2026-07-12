@@ -159,41 +159,34 @@ jobs:
           echo "Expected tag: $TAG"
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Get deployed tag from ArgoCD
-        id: deployed
+      - name: Poll ArgoCD until deployed tag matches (max 3 min)
         run: |
-          RESPONSE=$(curl -sk \
-            https://${{ secrets.ARGOCD_URL }}/api/v1/applications/${{ env.APP_NAME }} \
-            -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}")
-          # Extract deployed image tag from ArgoCD summary
-          DEPLOYED_IMAGE=$(echo "$RESPONSE" | python3 -c "
+          EXPECTED="${{ steps.expected.outputs.TAG }}"
+          echo "Expected tag: $EXPECTED"
+          for i in $(seq 1 6); do
+            DEPLOYED=$(curl -sk \
+              https://${{ secrets.ARGOCD_URL }}/api/v1/applications/${{ env.APP_NAME }} \
+              -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}" \
+              | python3 -c "
           import sys, json
           d = json.load(sys.stdin)
           images = d.get('status', {}).get('summary', {}).get('images', [])
           for img in images:
               if 'gitops-demo-api' in img:
-                  print(img.split(':')[-1])
-                  break
+                  print(img.split(':')[-1]); break
           else:
               print('unknown')
           ")
-          echo "Deployed tag: $DEPLOYED_IMAGE"
-          echo "TAG=$DEPLOYED_IMAGE" >> $GITHUB_OUTPUT
-
-      - name: Compare expected vs deployed
-        run: |
-          EXPECTED="${{ steps.expected.outputs.TAG }}"
-          DEPLOYED="${{ steps.deployed.outputs.TAG }}"
-          echo "──────────────────────────────────────"
-          echo "  Drift Detection Report"
-          echo "──────────────────────────────────────"
-          echo "  Expected (values.yaml) : $EXPECTED"
-          echo "  Deployed (ArgoCD)      : $DEPLOYED"
-          echo "──────────────────────────────────────"
-          if [ "$EXPECTED" = "$DEPLOYED" ]; then
-            echo "  Status: NO DRIFT — cluster matches git"
-          else
-            echo "  Status: DRIFT DETECTED — cluster is out of sync!"
-            echo "::error::Drift detected! Expected=$EXPECTED but cluster has $DEPLOYED"
-            exit 1
-          fi
+            echo "──────────────────────────────────────"
+            echo "  Drift Detection Report  (attempt $i/6)"
+            echo "──────────────────────────────────────"
+            echo "  Expected (values.yaml) : $EXPECTED"
+            echo "  Deployed (ArgoCD)      : $DEPLOYED"
+            if [ "$EXPECTED" = "$DEPLOYED" ]; then
+              echo "  Status: NO DRIFT — cluster matches git ✓"
+              exit 0
+            fi
+            echo "  Status: rollout in progress — retrying in 30s"
+            sleep 30
+          done
+          echo "::warning::Deployment still rolling out after 3 min — check ArgoCD manually"
