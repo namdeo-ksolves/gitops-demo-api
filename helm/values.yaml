@@ -1,4 +1,4 @@
-replicaCount: 1
+replicaCount: 3
 
 image:
   repository: 43.205.115.210/library/gitops-demo-api
@@ -35,7 +35,7 @@ readinessProbe:
   failureThreshold: 3
 
 env:
-  APP_VERSION: "1.0.0"
+  APP_VERSION: "2.0.0"
   NODE_ENV: "production"
 
 # Name of existing Secret that holds REDIS_URL key
