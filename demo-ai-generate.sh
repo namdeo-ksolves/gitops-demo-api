@@ -103,16 +103,29 @@ PYEOF
   echo ""
 
   cd "$DEMO_DIR"
-  git pull --rebase origin main 2>/dev/null
   git add src/index.js
   git diff --staged --stat
   git commit -m "feat: add Order Processing Service — AI-generated via Claude"
-  git push origin main
 
-  echo -e "\n${GREEN}✓ Pushed! Pipeline is running.${RESET}"
-  echo -e "Watch: ${CYAN}https://github.com/namdeo-ksolves/gitops-demo-api/actions${RESET}"
-  echo -e "Live:  ${CYAN}http://15.206.153.218:31000${RESET}"
-  echo -e "\nIn ~4 minutes, the Order Processing Service card will appear in the dashboard.\n"
+  # Retry push up to 5 times (CI bot may push a tag-update commit between our commit and push)
+  PUSHED=0
+  for attempt in 1 2 3 4 5; do
+    if git push origin main 2>&1; then
+      PUSHED=1
+      break
+    fi
+    echo -e "${YELLOW}  Push rejected (CI bot updated remote) — rebasing and retrying ($attempt/5)...${RESET}"
+    git pull --rebase origin main 2>/dev/null
+  done
+
+  if [ "$PUSHED" = "1" ]; then
+    echo -e "\n${GREEN}✓ Pushed! Pipeline is running.${RESET}"
+    echo -e "Watch: ${CYAN}https://github.com/namdeo-ksolves/gitops-demo-api/actions${RESET}"
+    echo -e "Live:  ${CYAN}http://15.206.153.218:31000${RESET}"
+    echo -e "\nIn ~4 minutes, the Order Processing Service card will appear in the dashboard.\n"
+  else
+    echo -e "\n${YELLOW}⚠ Push failed after 5 attempts. Run: git pull --rebase origin main && git push origin main${RESET}\n"
+  fi
 else
   echo -e "\n${YELLOW}Skipped. Run again when ready to deploy.${RESET}\n"
   rm -f "$TMPFILE"
