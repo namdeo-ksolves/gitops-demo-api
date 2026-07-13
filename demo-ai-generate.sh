@@ -10,6 +10,7 @@ MAGENTA='\033[0;35m'; BOLD='\033[1m'; RESET='\033[0m'
 
 DEMO_DIR="$(cd "$(dirname "$0")" && pwd)"
 INDEX_JS="$DEMO_DIR/src/index.js"
+AUTO_YES="${1:-}"  # pass --yes to skip confirmation (for testing)
 
 echo -e "\n${BOLD}════════════════════════════════════════════════${RESET}"
 echo -e "${BOLD}  AI SERVICE GENERATOR — LLM-Assisted GitOps${RESET}"
@@ -66,7 +67,11 @@ echo "$GENERATED" > "$TMPFILE"
 echo -e "${CYAN}Preview saved to: $TMPFILE${RESET}"
 echo -e "Inspect with: ${YELLOW}cat $TMPFILE${RESET}\n"
 
-read -p "$(echo -e ${BOLD}"Add this service to index.js and deploy via GitOps? [y/N]: "${RESET})" CONFIRM
+if [[ "$AUTO_YES" == "--yes" ]]; then
+  CONFIRM="y"
+else
+  read -p "$(echo -e ${BOLD}"Add this service to index.js and deploy via GitOps? [y/N]: "${RESET})" CONFIRM </dev/tty
+fi
 
 if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
   # Insert generated object before the closing ]; of the services array
@@ -115,7 +120,8 @@ PYEOF
       break
     fi
     echo -e "${YELLOW}  Push rejected (CI bot updated remote) — rebasing and retrying ($attempt/5)...${RESET}"
-    git pull --rebase origin main 2>/dev/null
+    git fetch origin main 2>/dev/null
+    git rebase --autostash origin/main 2>/dev/null
   done
 
   if [ "$PUSHED" = "1" ]; then
