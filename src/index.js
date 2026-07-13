@@ -65,8 +65,22 @@ let services = [
     deployedAt: new Date().toISOString(),
     tech: ['Python', 'FastAPI', 'Pinecone', 'OpenAI'],
   },
+  {
+  id: 5,
+  name: 'Order Processing Service',
+  category: 'API',
+  status: 'running',
+  version: APP_VERSION,
+  replicas: 3,
+  uptime: 99.94,
+  team: 'Commerce',
+  port: 8005,
+  description: 'Manages end-to-end order lifecycle — creation, validation, fulfillment tracking, and payment confirmation for all Ksolves e-commerce clients.',
+  deployedAt: new Date().toISOString(),
+  tech: ['Node.js', 'Kafka', 'PostgreSQL'],
+},
 ];
-let nextId = 5;
+let nextId = 6;
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', version: APP_VERSION, uptime: process.uptime() });
