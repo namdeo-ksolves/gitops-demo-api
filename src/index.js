@@ -15,7 +15,7 @@ let services = [
     category: 'API',
     status: 'running',
     version: APP_VERSION,
-    replicas: 3,
+    replicas: 1,
     uptime: 99.97,
     team: 'Platform',
     port: 8001,
@@ -41,32 +41,18 @@ let services = [
     id: 3,
     name: 'Notification Engine',
     category: 'Worker',
-    status: 'running',
+    status: 'degraded',
     version: APP_VERSION,
     replicas: 2,
-    uptime: 99.85,
+    uptime: 87.3,
     team: 'Platform',
     port: 8003,
     description: 'Sends email, SMS, and push notifications using a priority queue backed by Redis.',
     deployedAt: new Date(STARTED_AT - 86400000 * 2).toISOString(),
     tech: ['Node.js', 'Redis', 'SendGrid'],
   },
-  {
-    id: 4,
-    name: 'AI Recommendation Engine',
-    category: 'ML',
-    status: 'running',
-    version: APP_VERSION,
-    replicas: 2,
-    uptime: 99.90,
-    team: 'AI Platform',
-    port: 8004,
-    description: 'Delivers real-time product and content recommendations using LLM embeddings and vector search.',
-    deployedAt: new Date().toISOString(),
-    tech: ['Python', 'FastAPI', 'Pinecone', 'OpenAI'],
-  },
 ];
-let nextId = 5;
+let nextId = 4;
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', version: APP_VERSION, uptime: process.uptime() });
