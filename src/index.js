@@ -79,8 +79,22 @@ let services = [
   deployedAt: new Date().toISOString(),
   tech: ['Node.js', 'Kafka', 'PostgreSQL'],
 },
+  {
+    id: 6,
+    name: 'Analytics & Reporting Service',
+    category: 'Data',
+    status: 'running',
+    version: APP_VERSION,
+    replicas: 2,
+    uptime: 99.91,
+    team: 'Data Platform',
+    port: 8006,
+    description: 'Aggregates real-time event streams into business dashboards, SLA reports, and anomaly alerts across all Ksolves platform services.',
+    deployedAt: new Date().toISOString(),
+    tech: ['Python', 'ClickHouse', 'Apache Flink', 'Grafana'],
+  },
 ];
-let nextId = 6;
+let nextId = 7;
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', version: APP_VERSION, uptime: process.uptime() });
