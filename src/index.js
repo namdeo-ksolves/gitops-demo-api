@@ -93,8 +93,22 @@ let services = [
     deployedAt: new Date().toISOString(),
     tech: ['Python', 'ClickHouse', 'Apache Flink', 'Grafana'],
   },
+  {
+    id: 7,
+    name: 'Fraud Detection Engine',
+    category: 'ML',
+    status: 'running',
+    version: APP_VERSION,
+    replicas: 3,
+    uptime: 99.96,
+    team: 'Security',
+    port: 8007,
+    description: 'Real-time ML model scoring for transaction fraud detection using behavioral signals, device fingerprinting, and graph-based anomaly detection.',
+    deployedAt: new Date().toISOString(),
+    tech: ['Python', 'TensorFlow', 'Redis', 'Kafka'],
+  },
 ];
-let nextId = 7;
+let nextId = 8;
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', version: APP_VERSION, uptime: process.uptime() });
